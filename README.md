@@ -14,3 +14,5 @@ When doing this, all saves, fetches, etc. should be performed in a performBlock
 or performBlockAndWait call to ensure the operations happen on the correct
 queues.
 
+See [http://www.cocoanetics.com/2012/07/multi-context-coredata/](Multi-Context CoreData)
+for more information on this technique, but beware their typos.
