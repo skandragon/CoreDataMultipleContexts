@@ -15,27 +15,33 @@
 {
     [self _setupCoreDataStack];
 
-    [self _makeRecord];
 
+    [self _makeRecords];
 }
 
-- (void)_makeRecord
+- (void)_makeRecords
 {
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_LOW, 0), ^{
+        for (int i = 0 ; i < 10 ; i++)
+            [self _makeRecord: 1000];
+    });
+}
 
+- (void)_makeRecord: (int)count
+{
     NSManagedObjectContext *temporaryContext = [[NSManagedObjectContext alloc] initWithConcurrencyType: NSPrivateQueueConcurrencyType];
     temporaryContext.parentContext = self._managedObjectContext;
 
     [temporaryContext performBlock: ^{
+        int count_copy = count;
         NSError *error;
 
-        NSLog(@"Creating a person");
-
-        Person *person = [NSEntityDescription insertNewObjectForEntityForName: @"Person"
-                                                       inManagedObjectContext: self._managedObjectContext];
-        person.name = @"Michael";
-        person.title = @"Engineer";
-
-        NSLog(@"Person: %@", person);
+        while (count_copy-- > 0) {
+            Person *person = [NSEntityDescription insertNewObjectForEntityForName: @"Person"
+                                                           inManagedObjectContext: temporaryContext];
+            person.name = @"Michael";
+            person.title = @"Engineer";
+        }
 
         if ([temporaryContext save: &error]) {
             NSLog(@"Person saved to temporaryContext");
@@ -89,24 +95,19 @@
 {
     NSManagedObjectContext *savedContext = [notification object];
 
-    NSLog(@"Got NSManagedObjectContextDidSaveNotification for %@", savedContext);
-
     // Ignore change notifications for the top MOC.
     if (savedContext.parentContext == nil) {
-        NSLog(@"Changes without a parent ignored.");
         return;
     }
 
     // Ignore changes for other databases.
     if (self._privateWriterContext.persistentStoreCoordinator != savedContext.persistentStoreCoordinator) {
-        NSLog(@"Ignoring merge from other database.");
         return;
     }
 
     [savedContext.parentContext performBlock: ^{
         NSError *error;
 
-        NSLog(@"Merging changes from child context.");
         [savedContext.parentContext mergeChangesFromContextDidSaveNotification: notification];
         if (![savedContext.parentContext save: &error]) {
             NSLog(@"Error saving context %@: %@", savedContext.parentContext, [error localizedDescription]);
