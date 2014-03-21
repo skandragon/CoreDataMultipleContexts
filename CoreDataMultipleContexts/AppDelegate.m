@@ -15,33 +15,34 @@
 {
     [self _setupCoreDataStack];
 
-    [self._managedObjectContext performBlock: ^{
+    [self _makeRecord];
+
+}
+
+- (void)_makeRecord
+{
+
+    NSManagedObjectContext *temporaryContext = [[NSManagedObjectContext alloc] initWithConcurrencyType: NSPrivateQueueConcurrencyType];
+    temporaryContext.parentContext = self._managedObjectContext;
+
+    [temporaryContext performBlock: ^{
         NSError *error;
 
         NSLog(@"Creating a person");
 
-        Person *person = [NSEntityDescription insertNewObjectForEntityForName:@"Person"
-                                                       inManagedObjectContext:self._managedObjectContext];
+        Person *person = [NSEntityDescription insertNewObjectForEntityForName: @"Person"
+                                                       inManagedObjectContext: self._managedObjectContext];
         person.name = @"Michael";
         person.title = @"Engineer";
 
         NSLog(@"Person: %@", person);
 
-        if (![self._managedObjectContext save: &error]) {
-            NSLog(@"Error saving _managedObjectContext: %@", [error localizedDescription]);
+        if ([temporaryContext save: &error]) {
+            NSLog(@"Person saved to temporaryContext");
         } else {
-            NSLog(@"Person saved to _managedObjectContext");
+            NSLog(@"Error saving temporaryContext: %@", [error localizedDescription]);
         }
-
-        [self._privateWriterContext performBlock: ^{
-            NSError *error;
-            if (![self._privateWriterContext save: &error]) {
-                NSLog(@"Error saving _privateWriterContext: %@", [error localizedDescription]);
-            } else {
-                NSLog(@"Person saved to _privateWriterContext");
-            }
-        }];
-}];
+    }];
 }
 
 - (void)_setupCoreDataStack
@@ -49,23 +50,23 @@
     NSError *error = nil;
 
     // Set up the managed object model.
-    NSURL *modelURL = [[NSBundle mainBundle] URLForResource:@"CoreDataMultipleContexts" withExtension:@"momd"];
-    self._managedObjectModel = [[NSManagedObjectModel alloc] initWithContentsOfURL:modelURL];
+    NSURL *modelURL = [[NSBundle mainBundle] URLForResource: @"CoreDataMultipleContexts" withExtension: @"momd"];
+    self._managedObjectModel = [[NSManagedObjectModel alloc] initWithContentsOfURL: modelURL];
 
     // Set up the persistent store coordinator.
     NSURL *storeURL = [NSURL fileURLWithPath:[[[NSBundle mainBundle] bundlePath]
-                                              stringByAppendingPathComponent:@"Database.db"]];
+                                              stringByAppendingPathComponent: @"Database.db"]];
     NSLog(@"Url: %@", storeURL);
 
     error = nil;
     self._persistentStoreCoordinator = [[NSPersistentStoreCoordinator alloc]
-                                        initWithManagedObjectModel:self._managedObjectModel];
+                                        initWithManagedObjectModel: self._managedObjectModel];
 
-    if (![self._persistentStoreCoordinator addPersistentStoreWithType:NSSQLiteStoreType
+    if (![self._persistentStoreCoordinator addPersistentStoreWithType: NSSQLiteStoreType
                                                         configuration: nil
-                                                                  URL:storeURL
-                                                              options:nil
-                                                                error:&error]) {
+                                                                  URL: storeURL
+                                                              options: nil
+                                                                error: &error]) {
         NSLog(@"Error: %@", [error localizedDescription]);
     }
 
@@ -83,7 +84,6 @@
                                                  name: NSManagedObjectContextDidSaveNotification
                                                object: nil];
 }
-
 
 - (void)_mocDidSaveNotification:(NSNotification *)notification
 {
@@ -103,9 +103,14 @@
         return;
     }
 
-    [savedContext.parentContext performBlockAndWait: ^{
+    [savedContext.parentContext performBlock: ^{
+        NSError *error;
+
         NSLog(@"Merging changes from child context.");
         [savedContext.parentContext mergeChangesFromContextDidSaveNotification: notification];
+        if (![savedContext.parentContext save: &error]) {
+            NSLog(@"Error saving context %@: %@", savedContext.parentContext, [error localizedDescription]);
+        }
     }];
 }
 
