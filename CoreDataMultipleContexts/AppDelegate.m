@@ -16,7 +16,10 @@
     [self _setupCoreDataStack];
 
 
-    [self _makeRecords];
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        sleep(2);
+        [self _makeRecords];
+    });
 }
 
 - (void)_makeRecords
