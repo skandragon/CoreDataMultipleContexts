@@ -32,7 +32,8 @@
 
 - (void)_makeRecord: (int)count
 {
-    NSManagedObjectContext *temporaryContext = [[NSManagedObjectContext alloc] initWithConcurrencyType: NSPrivateQueueConcurrencyType];
+    NSManagedObjectContext *temporaryContext = [[NSManagedObjectContext alloc]
+                                                initWithConcurrencyType: NSPrivateQueueConcurrencyType];
     temporaryContext.parentContext = self._managedObjectContext;
 
     [temporaryContext performBlock: ^{
@@ -71,10 +72,15 @@
     self._persistentStoreCoordinator = [[NSPersistentStoreCoordinator alloc]
                                         initWithManagedObjectModel: self._managedObjectModel];
 
+    NSDictionary *options = @{
+                              NSMigratePersistentStoresAutomaticallyOption: @YES,
+                              NSInferMappingModelAutomaticallyOption: @YES,
+                            };
+
     if (![self._persistentStoreCoordinator addPersistentStoreWithType: NSSQLiteStoreType
                                                         configuration: nil
                                                                   URL: storeURL
-                                                              options: nil
+                                                              options: options
                                                                 error: &error]) {
         NSLog(@"Error: %@", [error localizedDescription]);
     }
